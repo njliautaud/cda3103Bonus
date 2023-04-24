@@ -1,0 +1,140 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+typedef struct cache {
+	int total;
+	int size; 
+	int correlation; 
+	int setNum; 
+	int sizeBlock;
+	int x;
+	int hitRate; 
+	int missRate;
+	int **loc; 
+	int **valid; 
+	char **data; 
+	int *lru; // Least recently used
+} 
+Cache;
+
+int convert(char *fileInput);
+void startCache(Cache *cache, int correlation, int x);
+void cacheCheck(Cache *cache, int address);
+
+int main() {
+	//while (1){
+	
+	//do{
+		FILE * traces = fopen("traces.txt", "r");
+	//}
+	//catch{
+	//	printf("Couldnt Access File");
+	//}
+	//}
+
+	Cache cache;
+	char fileInput[9];
+	int address;
+	int i;
+	cache.size = 32;
+	cache.sizeBlock = 4;
+	startCache(&cache, 1, 0);
+	for (i = 0; i < 16; i++) {
+		fscanf(traces, "%d", &fileInput);
+		address = convert(fileInput);
+	cacheCheck(&cache, address);
+	}
+
+cache.total=cache.hitRate+cache.missRate;
+printf("Hits: %d\n", cache.hitRate); //prints hitRates from cache struct
+printf("Misses: %d\n", cache.missRate); //prints missRatees from cache struct
+printf("Total: %d\n", cache.total);
+fclose(traces);//close the traces file
+
+return 0;
+} 
+
+int convert(char *fileInput) {
+	return (int) strtol(fileInput, NULL, 16);
+}
+
+void startCache(Cache * cache, int correlation, int x) {
+	int i, k;
+	cache->correlation = correlation;
+	cache->setNum = cache->size / (correlation * cache->sizeBlock);
+	cache->x = x;
+	cache->hitRate = 0;
+	cache->missRate = 0;
+	cache->loc = (int **) malloc(cache->setNum * sizeof(int *));
+	cache->valid = (int **) malloc(cache->setNum * sizeof(int *));
+	cache->data = (char **) malloc(cache->setNum * sizeof(char *));
+	
+	if (x == 0) {
+		cache->lru = (int *) malloc(cache->setNum * sizeof(int));
+		memset(cache->lru, 0, cache->setNum * sizeof(int));
+	}
+	
+	for (i = 0; i < cache->setNum; i++) {
+		
+		cache->loc[i] = (int *) malloc(correlation * sizeof(int));
+		cache->valid[i] = (int *) malloc(correlation * sizeof(int));
+		cache->data[i] = (char *) malloc(cache->sizeBlock * correlation * sizeof(char));
+		
+		for (k = 0; k < correlation; k++) {
+			cache->loc[i][k] = -1;
+			cache->valid[i][k] = 0;
+			memset(&cache->data[i][k * cache->sizeBlock], 0, cache->sizeBlock * sizeof(char));
+		}
+	}
+}
+
+void cacheCheck(Cache *cache, int address) {
+	
+	int setIndex = (address / cache->sizeBlock) % cache->setNum;
+	int loc = (address / cache->sizeBlock) / cache->setNum;
+	int i, k, lruCheck, rIndex;
+	
+	for (i = 0; i < cache->correlation; i++) {
+		if (cache->valid[setIndex][i] && cache->loc[setIndex][i] == loc) {
+			cache->hitRate++;
+			if (cache->x == 0) {
+				cache->lru[setIndex] = i;
+			}
+		return;
+		}
+	}
+	cache-> missRate++;
+	
+	if (cache-> x == 0) {
+		lruCheck = cache->lru[setIndex];
+		for (i = 0; i < cache->correlation; i++) {
+			if (!cache->valid[setIndex][i]) {
+				lruCheck = i;
+				break;
+			}
+		
+			if (cache->lru[setIndex] > cache->lru[setIndex + i]) {
+			lruCheck = i;
+			}
+		}
+			cache->lru[setIndex] = cache->lru[setIndex] + 1;
+		
+			if (lruCheck == cache->correlation) {
+				lruCheck = 0;
+				cache->lru[setIndex] = 0;
+			}
+		
+		cache->loc[setIndex][lruCheck] = loc;
+		cache->valid[setIndex][lruCheck] = 1;
+		memcpy(&cache->data[setIndex][lruCheck * cache->sizeBlock], &address, cache->sizeBlock * sizeof(char));
+			
+	} else {
+		
+		rIndex = rand() % cache->correlation;
+		cache->loc[setIndex][rIndex] = loc;
+		cache->valid[setIndex][rIndex] = 1;
+		memcpy(&cache->data[setIndex][rIndex * cache->sizeBlock], &address, cache->sizeBlock * sizeof(char));
+		
+	}
+}
